@@ -1,0 +1,169 @@
+---
+title: "Reproducible Research - Project 2"
+output:
+  pdf_document: default
+  html_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Synopsis
+
+
+# Data Processing
+Include the code to import the csv file and transform the data so that it can be visualized.
+
+```{r }
+library(ggplot2)
+
+activity<-read.csv("activity.csv")
+#remove N/A steps
+hact<-activity[is.na(activity["steps"])==FALSE,]
+#Fix Date Field
+#hact[2]<-as.character.Date(hact[2])
+#aggregate the steps per date:
+ag<-aggregate(x=hact[1],by =list(hact$date),FUN="sum")
+names(ag)[1]="dt"
+ag[1]<-as.Date(ag$dt, format="%Y-%m-%d")
+
+#Now figure out the average number of steps for 5 minute intervals
+#per day
+fvmin<-aggregate(x=hact[1],by =list(hact$date),FUN="mean")
+names(fvmin)[1]="date"
+#now aggregate on interval
+intag<-aggregate(x=hact[1],by =list(hact$interval),FUN="mean")
+names(intag)[1]="interval"
+#find interval where the max is 
+
+```
+
+## Including Plots
+
+
+Histogram for total number of steps
+
+```{r pressure, echo=TRUE}
+ggplot(data=ag, aes(x=dt,y=steps))+geom_bar(stat = "identity")+labs(title = "Total Steps per Day - Histogram", y = "Total Steps", x = "Date")
+```
+
+
+Mean and Median Steps per day
+```{r }
+mn<-mean(ag$steps)
+md<-median(ag$steps)
+paste("The mean number of total steps per day is",mn)
+paste("The median number of total steps per day is",md)
+```
+
+
+
+# Results
+
+What is the average daily activity pattern?
+
+```{r }
+plot(x=fvmin$date,y=fvmin$steps,type="l",main="Average Number of Steps Per Day",xlab="Date", ylab="Average Steps")
+lines(x=fvmin$date,y=fvmin$steps,type="l")
+```
+
+
+Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+```{r}
+mx<-intag[intag$steps==max(intag$steps),1]
+
+paste("The maximum number of average steps was at interval",mx)
+
+```
+
+
+Imputing missing values
+
+Note that there are a number of days/intervals where there are missing values (coded as NA). The presence of missing days may introduce bias into some calculations or summaries of the data.
+```{r}
+
+# Calculate number of missing items in the dataset
+
+stepNA<-activity[is.na(activity["steps"])==TRUE,]
+totStepNA<-NROW(stepNA)
+dtNA<-activity[is.na(activity["date"])==TRUE,]
+totDtNa<-NROW(dtNA)
+intNA<-activity[is.na(activity["interval"])==TRUE,]
+totIntNa<-NROW(intNA)
+paste("There are",totStepNA, "records that are missing step counts.")
+paste("There are",totDtNa, "records that are missing dates.")
+paste("There are",totIntNa, "records that are missing intervals.")
+#Fill in the missing data using the mean step count for the day and interval that the steps are missing
+
+library(dplyr)
+stepNA<-stepNA[order(stepNA$interval),]
+fillNA<-merge(stepNA,intag,by.x = "interval",by.y = "interval",all=TRUE)
+fillNA<-fillNA[c(4,3,1)]
+names(fillNA)[1]="steps"
+#Now combine with data set 
+fillNAds<-rbind(hact,fillNA)
+#redo the aggregation with the new data set
+#aggregate the steps per date:
+ag<-aggregate(x=fillNAds[1],by =list(fillNAds$date),FUN="sum")
+names(ag)[1]="dt"
+ag[1]<-as.Date(ag$dt, format="%Y-%m-%d")
+
+#Now figure out the average number of steps for 5 minute intervals
+#per day
+fvmin<-aggregate(x=fillNAds[1],by =list(fillNAds$date),FUN="mean")
+names(fvmin)[1]="date"
+#now aggregate on interval
+intag<-aggregate(x=fillNAds[1],by =list(fillNAds$interval),FUN="mean")
+names(intag)[1]="interval"
+
+```
+
+New Histogram with missing data filled in
+```{r}
+ggplot(data=ag, aes(x=dt,y=steps))+geom_bar(stat = "identity")+labs(title = "Total Steps per Day - Histogram", y = "Total Steps", x = "Date")
+
+```
+
+New interval chart with missing data filled in
+```{r}
+plot(x=fvmin$date,y=fvmin$steps,type="l",main="Average Number of Steps Per Day",xlab="Date", ylab="Average Steps")
+lines(x=fvmin$date,y=fvmin$steps,type="l")
+```
+
+Conclussion - Filling in the missing data did not impact the overall view of the data.
+
+
+Are there differences in activity patterns between weekdays and weekends?  Yes, the weekends show a significant increase in the number of steps.
+
+For this part the weekdays() function may be of some help here. Use the dataset with the filled-in missing values for this part.
+
+```{r}
+#Add weekday column, it will be Y/N value
+#convert factor to date field
+fillNAds[2]<-as.Date(fillNAds$date, format="%Y-%m-%d")
+#get name of day for date
+fillNAds[4]<-weekdays(fillNAds$date)
+#identify weekdays vs weekends
+fillNAds[5]<-fillNAds[4]!="Saturday" & fillNAds[4]!="Sunday" 
+names(fillNAds)[4:5]=c("Day","IsWD")
+wd<-fillNAds[fillNAds$IsWD==TRUE,]
+we<-fillNAds[fillNAds$IsWD==FALSE,]
+agwd<-aggregate(x=wd[1],by =list(wd$interval),FUN="mean")
+agwe<-aggregate(x=we[1],by =list(we$interval),FUN="mean")
+names(agwd)[1]="interval"
+names(agwe)[1]="interval"
+```
+
+
+Show average steps on weekdays with the missign data replaced by mean values
+```{r}
+plot(x=agwd$interval,y=agwd$steps,type="l",main="Average Number of Steps -  Weekday",xlab="interval", ylab="Average Steps")
+```
+
+Show average steps on Weekends with replaced missing values
+```{r}
+plot(x=agwe$interval,y=agwe$steps,type="l",main="Average Number of Steps -  Weekend",xlab="interval", ylab="Average Steps")
+```
+
