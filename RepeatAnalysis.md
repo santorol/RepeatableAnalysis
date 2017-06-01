@@ -1,8 +1,8 @@
 ---
 title: "Reproducible Research - Project 2"
 output:
-  html_document: default
   pdf_document: default
+  html_document: default
   word_document: default
 ---
 
